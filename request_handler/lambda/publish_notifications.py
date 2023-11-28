@@ -6,7 +6,7 @@ from decimal import Decimal
 from discord_webhook import DiscordWebhook
 
 
-webhook_url: str = "https://discord.com/api/webhooks/1178841110429323274/BO3nDXgXL_n_Ffo2nsF17u-HNbvYliRmXs4weanjrg3aShRoVRUrQ36TyjVV2y7WsdRv"
+webhook_url: str = "https://discord.com/api/webhooks/1178856487502745691/6xQt4AQB9-LE6zi1pzHkJdRTvyRbo7oFd2mYyq6gY3iajkbbG7PQcHGrXQE2jUcuheDE"
 client = boto3.client('dynamodb')
 ddb = boto3.resource('dynamodb')
 published_table: ddb.Table = ddb.Table(os.environ['PUBLISHED_TABLE_NAME'])

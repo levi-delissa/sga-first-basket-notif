@@ -6,7 +6,7 @@ from decimal import Decimal
 from discord_webhook import DiscordWebhook
 
 
-webhook_url: str = "https://discord.com/api/webhooks/1178825840130269215/PGEclTRH1aKe93qp_IQ77q59bJ1A8JuqCCgbRwXk8wsG7JeC1qU_BpxR-lG_ppFeLmGJ"
+webhook_url: str = "https://discord.com/api/webhooks/1178841110429323274/BO3nDXgXL_n_Ffo2nsF17u-HNbvYliRmXs4weanjrg3aShRoVRUrQ36TyjVV2y7WsdRv"
 client = boto3.client('dynamodb')
 ddb = boto3.resource('dynamodb')
 published_table: ddb.Table = ddb.Table(os.environ['PUBLISHED_TABLE_NAME'])
@@ -150,7 +150,7 @@ def handler(event, context):
                 current_ev = float(calc_ev(current_best_odds, current_fair_odds))
                 prior_ev = float(calc_ev(prior_best_odds, prior_fair_odds))
                 msg += f'<tr><td>{team}</td><td>{player}</td><td>{round(prior_best_odds)} ({prior_best_book})</td><td>{round(current_best_odds)} ({current_best_book})</td><td>{round(prior_fair_odds)}</td><td>{round(current_fair_odds)}</td><td>{round(100*prior_ev)}%</td><td>{round(100*current_ev)}%</td></tr>'
-                webhook_content += f'{team} - {player} - improved:\nnow: {round(current_fair_odds)} ({current_best_book}) - {round(current_fair_odds)} (fair) - {round(current_ev*100)}% EV\nwas: {round(prior_fair_odds)} ({prior_best_book}) - {round(prior_fair_odds)} (fair) - {round(prior_ev*100)}% EV\n\n\n'
+                webhook_content += f'```{team} - {player} - improved:\nnow: {round(current_fair_odds)} ({current_best_book}) - {round(current_fair_odds)} (fair) - {round(current_ev*100)}% EV\nwas: {round(prior_fair_odds)} ({prior_best_book}) - {round(prior_fair_odds)} (fair) - {round(prior_ev*100)}% EV\n```\n\n'
             msg += '</table><br><br>'
         if len(new_records):
             msg += '<h3>NEW</h3><br>'
@@ -164,7 +164,7 @@ def handler(event, context):
                 current_ev = float(calc_ev(current_best_odds, current_fair_odds))
                 msg += f'<tr><td>{team}</td><td>{player}</td><td>{round(current_best_odds)} ({current_best_book})</td><td>{round(current_fair_odds)}</td><td>{round(100*current_ev)}%</td></tr>'
                 if current_ev > 0:
-                    webhook_content += f'{team} - {player} - new:\nnow: {round(current_fair_odds)} ({current_best_book}) - {round(current_fair_odds)} (fair) - {round(current_ev*100)}% EV\n\n\n'
+                    webhook_content += f'```{team} - {player} - new:\nnow: {round(current_fair_odds)} ({current_best_book}) - {round(current_fair_odds)} (fair) - {round(current_ev*100)}% EV\n```\n\n'
             msg += '</table><br><br>'
         msg += '</body>'
         print(msg)

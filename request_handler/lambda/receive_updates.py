@@ -3,6 +3,7 @@ import os
 import boto3
 from datetime import datetime, timedelta
 from urllib.parse import unquote
+from decimal import Decimal
 
 
 ddb = boto3.resource('dynamodb')
@@ -47,7 +48,7 @@ def handler(event, context):
                 'best_book = :best_book'
             ),
             ExpressionAttributeValues={
-                ':ttl': str(expiration_time),
+                ':ttl': Decimal(str(expiration_time)),
                 ':best_odds': str(best_odds),
                 ':fair_odds': str(fair_odds),
                 ':best_book': str(best_book),

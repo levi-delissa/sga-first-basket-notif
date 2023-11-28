@@ -2,8 +2,11 @@ import json
 import os
 import boto3
 from datetime import datetime, timedelta
+from decimal import Decimal
+from discord_webhook import DiscordWebhook
 
 
+webhook_url: str = "https://discord.com/api/webhooks/1178825840130269215/PGEclTRH1aKe93qp_IQ77q59bJ1A8JuqCCgbRwXk8wsG7JeC1qU_BpxR-lG_ppFeLmGJ"
 client = boto3.client('dynamodb')
 ddb = boto3.resource('dynamodb')
 published_table: ddb.Table = ddb.Table(os.environ['PUBLISHED_TABLE_NAME'])
@@ -52,7 +55,7 @@ def handler(event, context):
         FilterExpression='#t > :current_time',
         ExpressionAttributeNames={'#t': 'ttl'},
         ExpressionAttributeValues={
-            ':current_time': {'S': str(current_time)},
+            ':current_time': {'N': str(current_time)},
         },
     )):
         for record in page['Items']:
@@ -71,7 +74,7 @@ def handler(event, context):
             FilterExpression='#t > :current_time',
             ExpressionAttributeNames={'#t': 'ttl'},
             ExpressionAttributeValues={
-                ':current_time': {'S': str(current_time)},
+                ':current_time': {'N': str(current_time)},
             },
     )):
         for record in page['Items']:
@@ -100,6 +103,7 @@ def handler(event, context):
     # send update
     new_records = sorted(new_records)
     improved_records = sorted(improved_records)
+    webhook_content: str = ''
     if len(new_records) or len(improved_records):
         msg: str = '''<html>
             <head>
@@ -121,28 +125,20 @@ def handler(event, context):
                 }
                 
                 th, td {
-                    padding: 3px 7px;
+                    padding: 2px 4px;
                     text-align: center;
-                }
-                
-                tbody tr {
-                    border-bottom: 1px solid #dddddd;
                 }
 
                 tbody tr:nth-of-type(even) {
                     background-color: #f3f3f3;
                 }
-
-                tbody tr:last-of-type {
-                    border-bottom: 2px solid #009879;
-                }
             </style>
             </head>
             <body>'''
         if len(improved_records):
-            msg += '<h1>IMPROVED</h1><br>'
+            msg += '<h3>IMPROVED</h3><br>'
             msg += '<table>'
-            msg += '<tr><th>event</th><th>team</th><th>player</th><th>current_best_book</th><th>current_best_odds</th><th>prior_best_book</th><th>prior_best_odds</th><th>current_fair_odds</th><th>current_ev</th><th>prior_ev</th></tr>'
+            msg += '<tr><th>Team</th><th>Player</th><th>Prior BO</th><th>Current BO</th><th>Prior FO</th><th>Current FO</th><th>Prior EV</th><th>Current EV</th></tr>'
             for r in improved_records:
                 event, team, player = r.split('_')
                 current_best_odds = float(unpublished_records[r]['best_odds'])
@@ -153,23 +149,29 @@ def handler(event, context):
                 prior_fair_odds = float(published_records[r]['fair_odds'])
                 current_ev = float(calc_ev(current_best_odds, current_fair_odds))
                 prior_ev = float(calc_ev(prior_best_odds, prior_fair_odds))
-                msg += f'<tr><td>{event}</td><td>{team}</td><td>{player}</td><td>{current_best_book}</td><td>{round(current_best_odds)}</td><td>{prior_best_book}</td><td>{round(prior_best_odds)}</td><td>{round(current_fair_odds)}</td><td>{round(100*current_ev)}%</td><td>{round(100*prior_ev)}%</td></tr>'
+                msg += f'<tr><td>{team}</td><td>{player}</td><td>{round(prior_best_odds)} ({prior_best_book})</td><td>{round(current_best_odds)} ({current_best_book})</td><td>{round(prior_fair_odds)}</td><td>{round(current_fair_odds)}</td><td>{round(100*prior_ev)}%</td><td>{round(100*current_ev)}%</td></tr>'
+                webhook_content += f'{team} - {player} - improved:\nnow: {round(current_fair_odds)} ({current_best_book}) - {round(current_fair_odds)} (fair) - {round(current_ev*100)}% EV\nwas: {round(prior_fair_odds)} ({prior_best_book}) - {round(prior_fair_odds)} (fair) - {round(prior_ev*100)}% EV\n\n\n'
             msg += '</table><br><br>'
         if len(new_records):
-            msg += '<h1>NEW</h1><br>'
+            msg += '<h3>NEW</h3><br>'
             msg += '<table>'
-            msg += '<tr><th>event</th><th>team</th><th>player</th><th>current_best_book</th><th>current_best_odds</th><th>current_fair_odds</th><th>current_ev</th></tr>'
+            msg += '<tr><th>Team</th><th>Player</th><th>Current BO</th><th>Current FO</th><th>Current EV</th></tr>'
             for r in new_records:
                 event, team, player = r.split('_')
                 current_best_odds = float(unpublished_records[r]['best_odds'])
                 current_best_book = unpublished_records[r]['best_book']
                 current_fair_odds = float(unpublished_records[r]['fair_odds'])
                 current_ev = float(calc_ev(current_best_odds, current_fair_odds))
-                msg += f'<tr><td>{event}</td><td>{team}</td><td>{player}</td><td>{current_best_book}</td><td>{round(current_best_odds)}</td><td>{round(current_fair_odds)}</td><td>{round(100*current_ev)}</td></tr>'
+                msg += f'<tr><td>{team}</td><td>{player}</td><td>{round(current_best_odds)} ({current_best_book})</td><td>{round(current_fair_odds)}</td><td>{round(100*current_ev)}%</td></tr>'
+                if current_ev > 0:
+                    webhook_content += f'{team} - {player} - new:\nnow: {round(current_fair_odds)} ({current_best_book}) - {round(current_fair_odds)} (fair) - {round(current_ev*100)}% EV\n\n\n'
             msg += '</table><br><br>'
         msg += '</body>'
         print(msg)
         send_email(msg)
+        if webhook_content:
+            webhook = DiscordWebhook(url=webhook_url, content=webhook_content)
+            webhook_response = webhook.execute()
 
     else:
         print('no updates!')
@@ -188,7 +190,7 @@ def handler(event, context):
                 'best_book = :best_book '
             ),
             ExpressionAttributeValues={
-                ':ttl': str(expiration_time),
+                ':ttl': Decimal(str(expiration_time)),
                 ':best_odds': str(best_odds),
                 ':fair_odds': str(fair_odds),
                 ':best_book': str(best_book),
